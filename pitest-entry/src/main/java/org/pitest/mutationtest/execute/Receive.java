@@ -29,6 +29,9 @@ class Receive implements ReceiveStrategy {
             case Id.REPORT:
                 handleReport(is);
                 break;
+            case Id.RETRY:
+                handleRetry(is);
+                break;
             default:
                 LOG.severe("Unknown control byte " + control);
         }
@@ -40,6 +43,13 @@ class Receive implements ReceiveStrategy {
                 .read(MutationStatusTestPair.class);
         this.idMap.put(mutation, value);
         LOG.fine(mutation + " " + value);
+    }
+
+    private void handleRetry(final SafeDataInputStream is) {
+        final MutationIdentifier mutation = is.read(MutationIdentifier.class);
+        this.idMap.put(mutation, MutationStatusTestPair.notAnalysed(0,
+                DetectionStatus.NOT_STARTED));
+        LOG.fine(mutation + " will be analysed again in a fresh minion");
     }
 
     private void handleDescribe(final SafeDataInputStream is) {

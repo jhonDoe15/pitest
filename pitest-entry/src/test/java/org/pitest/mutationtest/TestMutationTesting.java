@@ -63,6 +63,7 @@ import org.pitest.functional.prelude.Prelude;
 import org.pitest.mutationtest.build.CompoundMutationInterceptor;
 import org.pitest.mutationtest.build.CompoundProjectMutationInterceptor;
 import org.pitest.mutationtest.build.DefaultGrouper;
+import org.pitest.mutationtest.build.ClassPackingGrouper;
 import org.pitest.mutationtest.build.DefaultTestPrioritiser;
 import org.pitest.mutationtest.build.MutationAnalysisUnit;
 import org.pitest.mutationtest.build.MutationInterceptor;
@@ -87,6 +88,8 @@ import org.pitest.util.IsolationUtils;
 import org.pitest.util.Timings;
 
 import com.example.MutationsInNestedClasses;
+import com.example.SharedStateBetweenClasses;
+import com.example.SharedStateBetweenClassesTest;
 import com.example.MutationsInNestedClassesTest;
 import org.pitest.util.Verbosity;
 
@@ -97,6 +100,9 @@ public class TestMutationTesting {
   private TestPluginArguments      config;
 
   private MetaDataExtractor        metaDataExtractor;
+
+  private boolean                  reuseMinions;
+  private boolean                  reuseMinionGuards;
 
   @Before
   public void setUp() {
@@ -199,6 +205,38 @@ public class TestMutationTesting {
   }
 
   @Test
+  public void shouldIsolateMutationsFromNestedClassesWhenMinionsAreReused() {
+    this.reuseMinions = true;
+    run(MutationsInNestedClasses.class, MutationsInNestedClassesTest.class,
+        "FALSE_RETURNS");
+    verifyResults(SURVIVED, SURVIVED);
+  }
+
+  @Test
+  public void shouldGiveSameResultsAsSeparateMinionsWhenStateLeaksBetweenClasses() {
+    run(SharedStateBetweenClasses.class, SharedStateBetweenClassesTest.class,
+        "NEGATE_CONDITIONALS", "MATH");
+    verifyResults(KILLED, KILLED, SURVIVED);
+
+    this.metaDataExtractor = new MetaDataExtractor();
+    this.mae = new MutationAnalysisExecutor(1, result -> result,
+        Collections.singletonList(this.metaDataExtractor));
+    this.reuseMinions = true;
+    this.reuseMinionGuards = true;
+    run(SharedStateBetweenClasses.class, SharedStateBetweenClassesTest.class,
+        "NEGATE_CONDITIONALS", "MATH");
+    verifyResults(KILLED, KILLED, SURVIVED);
+  }
+
+  @Test
+  public void shouldLetStateLeakBetweenClassesWhenGuardsAreOff() {
+    this.reuseMinions = true;
+    run(SharedStateBetweenClasses.class, SharedStateBetweenClassesTest.class,
+        "NEGATE_CONDITIONALS", "MATH");
+    verifyResults(KILLED, SURVIVED, KILLED);
+  }
+
+  @Test
   @Ignore("too brittle")
   public void shouldRecordCorrectLineNumberForMutations() {
     run(OneMutationOnly.class, OneMutationFullTest.class,
@@ -290,13 +328,14 @@ public class TestMutationTesting {
         coverageOptions.getPitConfig(), mutationConfig, arguments,
         new PercentAndConstantTimeoutStrategy(data.getTimeoutFactor(),
             data.getTimeoutConstant()), data.getVerbosity(), false, data.getClassPath()
-            .getLocalClassPath());
+            .getLocalClassPath(), this.reuseMinions, this.reuseMinionGuards);
 
 
 
 
     final MutationTestBuilder builder = new MutationTestBuilder(mode, wf,
-        new NullHistory(), source, new DefaultGrouper(0), CompoundProjectMutationInterceptor.passThrough());
+        new NullHistory(), source, this.reuseMinions ? new ClassPackingGrouper(1, 0) : new DefaultGrouper(0),
+        CompoundProjectMutationInterceptor.passThrough());
 
     final List<MutationAnalysisUnit> tus = builder
         .createMutationTestUnits(codeClasses);

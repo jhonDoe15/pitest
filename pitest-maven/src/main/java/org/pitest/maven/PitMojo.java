@@ -246,6 +246,25 @@ public final class PitMojo extends AbstractMojo {
   @Parameter(property = "fullMutationMatrix", defaultValue = "false")
 
   private boolean                     fullMutationMatrix;
+
+  /**
+   * Analyse mutants of several classes in one minion jvm.
+   *
+   * Each class is returned to its original bytecode once its mutants are done. Saves
+   * starting the tests (for example Spring contexts) once per mutated class. Classes are
+   * packed into one unit per thread, or into units of about mutationUnitSize mutants if
+   * that is set.
+   */
+  @Parameter(property = "reuseMinions", defaultValue = "false")
+  private boolean                     reuseMinions;
+
+  /**
+   * With reuseMinions, redo in a fresh minion any result that state left in the jvm by
+   * an earlier class may have changed: kills by a test that also fails without the mutant,
+   * and results where the mutated code never ran. Has no effect unless reuseMinions is set.
+   */
+  @Parameter(property = "reuseMinionGuards", defaultValue = "true")
+  private boolean                     reuseMinionGuards;
   /**
    * Maximum number of mutations to include in a single analysis unit.
    * 
@@ -729,6 +748,14 @@ public final class PitMojo extends AbstractMojo {
 
   public boolean isFullMutationMatrix() {
     return fullMutationMatrix;
+  }
+
+  public boolean isReuseMinions() {
+    return this.reuseMinions;
+  }
+
+  public boolean isReuseMinionGuards() {
+    return this.reuseMinionGuards;
   }
 
   public int getMutationUnitSize() {

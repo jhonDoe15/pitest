@@ -14,6 +14,8 @@
  */
 package org.pitest.mutationtest.execute;
 
+import org.pitest.classinfo.ClassByteArraySource;
+import org.pitest.classinfo.ClassName;
 import org.pitest.mutationtest.DetectionStatus;
 import org.pitest.mutationtest.MutationStatusTestPair;
 import org.pitest.mutationtest.environment.ResetEnvironment;
@@ -36,7 +38,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -61,39 +65,129 @@ public class MutationTestWorker {
 
   private final ResetEnvironment                            reset;
 
+  // when set, mutants of more than one class are analysed in this jvm and
+  // each class is returned to these bytes once its mutants are done
+  private final ClassByteArraySource                        originals;
+  private final boolean                                     guards;
+
 
   public MutationTestWorker(HotSwap hotswap,
                             Mutater mutater,
                             ClassLoader loader,
                             ResetEnvironment reset,
                             boolean fullMutationMatrix) {
+    this(hotswap, mutater, loader, reset, fullMutationMatrix, null, false);
+  }
+
+  /**
+   * @param originals source of unmutated bytecode. If not null, the range may hold
+   *                  mutants of several classes. They are analysed one class at a time
+   *                  and each class is restored to its original bytes before the next.
+   * @param guards    when analysing several classes, redo in a fresh minion any result
+   *                  that state left in the jvm by an earlier class may have changed
+   */
+  public MutationTestWorker(HotSwap hotswap,
+                            Mutater mutater,
+                            ClassLoader loader,
+                            ResetEnvironment reset,
+                            boolean fullMutationMatrix,
+                            ClassByteArraySource originals,
+                            boolean guards) {
     this.loader = loader;
     this.reset = reset;
     this.mutater = mutater;
     this.hotswap = hotswap;
     this.fullMutationMatrix = fullMutationMatrix;
+    this.originals = originals;
+    this.guards = guards && originals != null;
   }
 
   protected void run(final Collection<MutationDetails> range, final Reporter r,
       final TimeOutDecoratedTestSource testSource) throws IOException {
 
-    for (final MutationDetails mutation : range) {
-      if (DEBUG) {
-        LOG.fine("Running mutation " + mutation);
+    if (this.originals == null) {
+      for (final MutationDetails mutation : range) {
+        processTimed(r, testSource, mutation, false);
       }
-      final long t0 = System.nanoTime();
-      processMutation(r, testSource, mutation);
-      if (DEBUG) {
-        LOG.fine("processed mutation in " + NANOSECONDS.toMillis(System.nanoTime() - t0)
-            + " ms.");
-      }
+      return;
     }
 
+    runOneClassAtATime(range, r, testSource);
   }
 
-  private void processMutation(Reporter r,
+  private void runOneClassAtATime(final Collection<MutationDetails> range,
+      final Reporter r, final TimeOutDecoratedTestSource testSource) {
+    // Keep the first mutant first. The parent assumes it is the one that runs
+    // first, and the guards never send back mutants of the first class, so every
+    // minion finishes at least one mutant.
+    final Map<ClassName, List<MutationDetails>> byClass = new LinkedHashMap<>();
+    for (final MutationDetails each : range) {
+      byClass.computeIfAbsent(each.getClassName(), k -> new ArrayList<>()).add(each);
+    }
+
+    final KillRecheck recheck = new KillRecheck(this::failsWithoutMutant);
+    boolean firstClass = true;
+    for (final List<MutationDetails> mutants : byClass.values()) {
+      final boolean guarded = this.guards && !firstClass;
+      for (final MutationDetails mutation : mutants) {
+        final MutationStatusTestPair result = processTimed(r, testSource, mutation, guarded);
+        if (guarded && result != null) {
+          recheck.record(mutation, result);
+        }
+      }
+
+      restoreOriginal(mutants.get(mutants.size() - 1));
+
+      final Collection<MutationIdentifier> polluted = recheck.findPollutedResults(testSource);
+      if (!polluted.isEmpty()) {
+        LOG.fine(() -> "A test that killed a mutant also fails without it. Ending minion so "
+            + polluted.size() + " mutants it decided are analysed again in a fresh one");
+        polluted.forEach(r::retry);
+        return;
+      }
+      firstClass = false;
+    }
+  }
+
+  private void restoreOriginal(MutationDetails lastAnalysed) {
+    final ClassName clazz = lastAnalysed.getClassName();
+    final byte[] original = this.originals.getBytes(clazz.asJavaName())
+        .orElseThrow(() -> new IllegalStateException("No bytecode found for " + clazz));
+    this.hotswap.insertClass(clazz, this.loader, original);
+    this.reset.resetFor(new Mutant(lastAnalysed, original));
+    if (DEBUG) {
+      LOG.fine("restored original bytecode of " + clazz);
+    }
+  }
+
+  private boolean failsWithoutMutant(TestUnit test) {
+    final CheckTestHasFailedResultListener listener = new CheckTestHasFailedResultListener(false);
+    new Pitest(listener).run(createNewContainer(), createEarlyExitTestGroup(Collections.singletonList(test)));
+    return !listener.getFailingTests().isEmpty();
+  }
+
+  private MutationStatusTestPair processTimed(Reporter r,
+      TimeOutDecoratedTestSource testSource, MutationDetails mutation, boolean probe) {
+    if (DEBUG) {
+      LOG.fine("Running mutation " + mutation);
+    }
+    final long t0 = System.nanoTime();
+    final MutationStatusTestPair result = processMutation(r, testSource, mutation, probe);
+    if (DEBUG) {
+      LOG.fine("processed mutation in " + NANOSECONDS.toMillis(System.nanoTime() - t0)
+          + " ms.");
+    }
+    return result;
+  }
+
+  /**
+   * @return the reported result, or null if the mutant was sent back to be analysed
+   * in a fresh minion
+   */
+  private MutationStatusTestPair processMutation(Reporter r,
                                TimeOutDecoratedTestSource testSource,
-                               MutationDetails mutationDetails) {
+                               MutationDetails mutationDetails,
+                               boolean probe) {
 
     final MutationIdentifier mutationId = mutationDetails.getId();
     final Mutant mutatedClass = this.mutater.getMutation(mutationId);
@@ -108,18 +202,33 @@ public class MutationTestWorker {
 
     r.describe(mutationId);
 
+    final ReachProbe reach = probe ? ReachProbe.forMutant(original(mutationDetails), mutatedClass)
+        : ReachProbe.none();
+
     final MutationStatusTestPair mutationDetected = handleMutation(
-        mutationDetails, mutatedClass, relevantTests);
+        mutationDetails, mutatedClass, relevantTests, reach);
+
+    if (reach.wasMissed(mutationDetected.getStatus())) {
+      LOG.fine(() -> "Mutated code of " + mutationId + " did not run."
+          + " Sending it back to be analysed in a fresh minion");
+      r.retry(mutationId);
+      return null;
+    }
 
     r.report(mutationId, mutationDetected);
     if (DEBUG) {
       LOG.fine("Mutation " + mutationId + " detected = " + mutationDetected);
     }
+    return mutationDetected;
+  }
+
+  private byte[] original(MutationDetails mutation) {
+    return this.originals.getBytes(mutation.getClassName().asJavaName()).orElse(null);
   }
 
   private MutationStatusTestPair handleMutation(
       final MutationDetails mutationId, final Mutant mutatedClass,
-      final List<TestUnit> relevantTests) {
+      final List<TestUnit> relevantTests, final ReachProbe reach) {
     final MutationStatusTestPair mutationDetected;
     if ((relevantTests == null) || relevantTests.isEmpty()) {
       LOG.log(Level.WARNING, "No test coverage for mutation " + mutationId + " in " + mutatedClass.getDetails().getMethod()
@@ -127,7 +236,7 @@ public class MutationTestWorker {
       mutationDetected =  MutationStatusTestPair.notAnalysed(0, DetectionStatus.RUN_ERROR, Collections.emptyList());
     } else {
       mutationDetected = handleCoveredMutation(mutationId, mutatedClass,
-          relevantTests);
+          relevantTests, reach);
 
     }
     return mutationDetected;
@@ -135,7 +244,7 @@ public class MutationTestWorker {
 
   private MutationStatusTestPair handleCoveredMutation(
       final MutationDetails mutationId, final Mutant mutatedClass,
-      final List<TestUnit> relevantTests) {
+      final List<TestUnit> relevantTests, final ReachProbe reach) {
     final MutationStatusTestPair mutationDetected;
     if (DEBUG) {
       LOG.fine(relevantTests.size() + " relevant test for "
@@ -145,13 +254,13 @@ public class MutationTestWorker {
     final Container c = createNewContainer();
     final long t0 = System.nanoTime();
 
-    if (this.hotswap.insertClass(mutationId.getClassName(), this.loader,
-        mutatedClass.getBytes())) {
+    if (insert(mutationId.getClassName(), mutatedClass, reach)) {
       if (DEBUG) {
         LOG.fine("replaced class with mutant in "
             + NANOSECONDS.toMillis(System.nanoTime() - t0) + " ms");
       }
 
+      reach.reset();
       mutationDetected = doTestsDetectMutation(c, relevantTests);
     } else {
       LOG.warning("Mutation " + mutationId + " was not viable ");
@@ -161,6 +270,18 @@ public class MutationTestWorker {
               .collect(Collectors.toList()));
     }
     return mutationDetected;
+  }
+
+  private boolean insert(ClassName clazz, Mutant mutatedClass, ReachProbe reach) {
+    if (reach.isActive()) {
+      if (this.hotswap.insertClass(clazz, this.loader, reach.bytes())) {
+        return true;
+      }
+      LOG.fine(() -> "Could not insert reach probe into " + mutatedClass.getDetails().getId()
+          + ", analysing mutant without it");
+      reach.disable();
+    }
+    return this.hotswap.insertClass(clazz, this.loader, mutatedClass.getBytes());
   }
 
   private static Container createNewContainer() {

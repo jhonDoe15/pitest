@@ -66,6 +66,8 @@ import static org.pitest.mutationtest.config.ConfigOption.EXPORT_LINE_COVERAGE;
 import static org.pitest.mutationtest.config.ConfigOption.FAIL_WHEN_NOT_MUTATIONS;
 import static org.pitest.mutationtest.config.ConfigOption.FEATURES;
 import static org.pitest.mutationtest.config.ConfigOption.FULL_MUTATION_MATRIX;
+import static org.pitest.mutationtest.config.ConfigOption.REUSE_MINIONS;
+import static org.pitest.mutationtest.config.ConfigOption.REUSE_MINION_GUARDS;
 import static org.pitest.mutationtest.config.ConfigOption.HISTORY_INPUT_LOCATION;
 import static org.pitest.mutationtest.config.ConfigOption.HISTORY_OUTPUT_LOCATION;
 import static org.pitest.mutationtest.config.ConfigOption.INCLUDED_GROUPS;
@@ -141,6 +143,8 @@ public class OptionsParser {
   private final OptionSpec<String>                   includedGroupsSpec;
   private final OptionSpec<String>                   includedTestMethodsSpec;
   private final ArgumentAcceptingOptionSpec<Boolean> fullMutationMatrixSpec;
+  private final ArgumentAcceptingOptionSpec<Boolean> reuseMinionsSpec;
+  private final ArgumentAcceptingOptionSpec<Boolean> reuseMinionGuardsSpec;
   private final OptionSpec<Integer>                  mutationUnitSizeSpec;
   private final ArgumentAcceptingOptionSpec<Boolean> timestampedReportsSpec;
   private final ArgumentAcceptingOptionSpec<Boolean> detectInlinedCode;
@@ -365,6 +369,20 @@ public class OptionsParser {
             "Whether to create a full mutation matrix")
         .defaultsTo(FULL_MUTATION_MATRIX.getDefault(Boolean.class));
 
+    this.reuseMinionsSpec = parserAccepts(REUSE_MINIONS)
+        .withOptionalArg()
+        .ofType(Boolean.class)
+        .describedAs(
+            "Whether to analyse mutants of several classes in one minion")
+        .defaultsTo(REUSE_MINIONS.getDefault(Boolean.class));
+
+    this.reuseMinionGuardsSpec = parserAccepts(REUSE_MINION_GUARDS)
+        .withOptionalArg()
+        .ofType(Boolean.class)
+        .describedAs(
+            "With reuseMinions, whether to redo in a fresh minion results that earlier classes may have affected")
+        .defaultsTo(REUSE_MINION_GUARDS.getDefault(Boolean.class));
+
     this.mutationUnitSizeSpec = parserAccepts(MUTATION_UNIT_SIZE)
         .withRequiredArg()
         .ofType(Integer.class)
@@ -477,6 +495,8 @@ public class OptionsParser {
 
     data.addChildJVMArgs(this.jvmArgsProcessor.values(userArgs));
     data.setFullMutationMatrix(booleanValue(fullMutationMatrixSpec, userArgs));
+    data.setReuseMinions(booleanValue(reuseMinionsSpec, userArgs));
+    data.setReuseMinionGuards(booleanValue(reuseMinionGuardsSpec, userArgs));
 
     data.setDetectInlinedCode(booleanValue(detectInlinedCode, userArgs));
 

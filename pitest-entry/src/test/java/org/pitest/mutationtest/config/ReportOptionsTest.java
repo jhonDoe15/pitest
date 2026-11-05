@@ -15,6 +15,7 @@
 package org.pitest.mutationtest.config;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -30,6 +31,25 @@ public class ReportOptionsTest {
   @Test
   public void shouldDefaultToNoLineCoverageExport() {
     assertFalse(this.testee.shouldExportLineCoverage());
+  }
+
+  @Test
+  public void doesNotReuseMinionsOrUseTheirGuardsByDefault() {
+    assertFalse(this.testee.isReuseMinions());
+    assertFalse(this.testee.useReuseMinionGuards());
+  }
+
+  @Test
+  public void usesGuardsWhenMinionsAreReused() {
+    this.testee.setReuseMinions(true);
+    assertTrue(this.testee.useReuseMinionGuards());
+  }
+
+  @Test
+  public void guardsCanBeTurnedOffWhenMinionsAreReused() {
+    this.testee.setReuseMinions(true);
+    this.testee.setReuseMinionGuards(false);
+    assertFalse(this.testee.useReuseMinionGuards());
   }
 
 }

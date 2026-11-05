@@ -178,6 +178,19 @@ public enum ConfigOption {
   MUTATION_UNIT_SIZE("mutationUnitSize", 0),
 
   /**
+   * Analyse mutants of several classes in one minion jvm, restoring each class once its
+   * mutants are done. Saves the start up cost of the tests (for example Spring contexts)
+   * once per class.
+   */
+  REUSE_MINIONS("reuseMinions", false),
+
+  /**
+   * With reuseMinions, redo in a fresh minion any result that state left in the jvm by an
+   * earlier class may have changed. Has no effect unless reuseMinions is set.
+   */
+  REUSE_MINION_GUARDS("reuseMinionGuards", true),
+
+  /**
    * Do/don't attempt to detect inlined code from finally blocks
    */
   USE_INLINED_CODE_DETECTION("detectInlinedCode", true),

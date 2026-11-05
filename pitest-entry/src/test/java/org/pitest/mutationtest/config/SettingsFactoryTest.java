@@ -1,5 +1,8 @@
 package org.pitest.mutationtest.config;
 
+import org.pitest.mutationtest.build.ClassPackingGrouperFactory;
+import org.pitest.mutationtest.build.DefaultMutationGrouperFactory;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -255,6 +258,17 @@ public class SettingsFactoryTest {
   @Test
   public void doesNotFilterTestByDefault() {
       assertThat(this.testee.createTestFilter().include(unused(), unused())).isTrue();
+  }
+
+  @Test
+  public void groupsMutantsOfOneClassPerUnitByDefault() {
+    assertThat(this.testee.getMutationGrouper()).isInstanceOf(DefaultMutationGrouperFactory.class);
+  }
+
+  @Test
+  public void packsSeveralClassesPerUnitWhenMinionsAreReused() {
+    this.options.setReuseMinions(true);
+    assertThat(this.testee.getMutationGrouper()).isInstanceOf(ClassPackingGrouperFactory.class);
   }
 
   private <T>T unused() {

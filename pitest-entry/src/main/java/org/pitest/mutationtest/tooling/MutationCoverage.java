@@ -382,7 +382,8 @@ public class MutationCoverage {
         .getConfiguration(), mutationConfig, args,
         new PercentAndConstantTimeoutStrategy(this.data.getTimeoutFactor(),
             this.data.getTimeoutConstant()), this.data.getVerbosity(), this.data.isFullMutationMatrix(),
-            this.data.getClassPath().getLocalClassPath());
+            this.data.getClassPath().getLocalClassPath(), this.data.isReuseMinions(),
+            this.data.useReuseMinionGuards());
 
     final MutationGrouper grouper = this.settings.getMutationGrouper().makeFactory(
         this.data.getFreeFormProperties(), this.code,

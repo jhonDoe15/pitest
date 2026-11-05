@@ -652,6 +652,28 @@ public class OptionsParserTest {
   }
 
   @Test
+  public void shouldNotReuseMinionsByDefault() {
+    final ReportOptions actual = parseAddingRequiredArgs();
+    assertThat(actual.isReuseMinions()).isFalse();
+    assertThat(actual.useReuseMinionGuards()).isFalse();
+  }
+
+  @Test
+  public void shouldReuseMinionsWithGuardsWhenFlagIsSet() {
+    final ReportOptions actual = parseAddingRequiredArgs("--reuseMinions");
+    assertThat(actual.isReuseMinions()).isTrue();
+    assertThat(actual.useReuseMinionGuards()).isTrue();
+  }
+
+  @Test
+  public void shouldTurnOffReuseMinionGuardsWhenFalseSupplied() {
+    final ReportOptions actual = parseAddingRequiredArgs("--reuseMinions=true",
+        "--reuseMinionGuards=false");
+    assertThat(actual.isReuseMinions()).isTrue();
+    assertThat(actual.useReuseMinionGuards()).isFalse();
+  }
+
+  @Test
   public void shouldParseProjectBase() {
     final ReportOptions actual = parseAddingRequiredArgs(
             "--projectBase", "foo");

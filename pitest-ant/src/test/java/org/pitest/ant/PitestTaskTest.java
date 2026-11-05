@@ -483,6 +483,15 @@ public class PitestTaskTest {
   }
 
   @Test
+  public void shouldPassReuseMinionsFlagsToJavaTask() {
+    this.pitestTask.setReuseMinions("true");
+    this.pitestTask.setReuseMinionGuards("false");
+    this.pitestTask.execute(this.java);
+    verify(this.arg).setValue("--reuseMinions=true");
+    verify(this.arg).setValue("--reuseMinionGuards=false");
+  }
+
+  @Test
   public void shouldPassMutationMatrixFlagToJavaTask() {
     this.pitestTask.setFullMutationMatrix("true");
     this.pitestTask.execute(this.java);

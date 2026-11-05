@@ -51,6 +51,16 @@ public class DefaultReporterTest {
     assertThat(is.read(MutationStatusTestPair.class)).isEqualTo(ms);
   }
 
+  @Test
+  public void shouldSendRetryRequest() {
+    final MutationIdentifier mi = aMutationId().withIndex(0).withMutator("foo")
+        .build();
+    this.testee.retry(mi);
+    final SafeDataInputStream is = resultToStream();
+    assertThat(is.readByte()).isEqualTo(Id.RETRY);
+    assertThat(is.read(MutationIdentifier.class)).isEqualTo(mi);
+  }
+
   private SafeDataInputStream resultToStream() {
     return new SafeDataInputStream(
         new ByteArrayInputStream(this.os.toByteArray()));

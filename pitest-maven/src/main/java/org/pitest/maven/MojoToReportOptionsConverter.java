@@ -312,6 +312,8 @@ public class MojoToReportOptionsConverter {
     setTestGroups(data);
 
     data.setFullMutationMatrix(this.mojo.isFullMutationMatrix());
+    data.setReuseMinions(this.mojo.isReuseMinions());
+    data.setReuseMinionGuards(this.mojo.isReuseMinionGuards());
 
     data.setMutationUnitSize(this.mojo.getMutationUnitSize());
     data.setShouldCreateTimestampedReports(this.mojo.isTimestampedReports());

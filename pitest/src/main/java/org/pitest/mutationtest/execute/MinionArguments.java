@@ -36,11 +36,26 @@ public class MinionArguments implements Serializable {
   final Verbosity verbosity;
   final boolean                     fullMutationMatrix;
   final TestPluginArguments         pitConfig;
+  final boolean                     reuseMinion;
+  final boolean                     reuseMinionGuards;
 
   public MinionArguments(final Collection<MutationDetails> mutations,
       final Collection<ClassName> tests, final String engine, final EngineArguments engineArgs,
       final TimeoutLengthStrategy timeoutStrategy, final Verbosity verbosity, final boolean fullMutationMatrix,
       final TestPluginArguments pitConfig) {
+    this(mutations, tests, engine, engineArgs, timeoutStrategy, verbosity, fullMutationMatrix, pitConfig,
+        false, false);
+  }
+
+  /**
+   * @param reuseMinion       mutations may belong to more than one class
+   * @param reuseMinionGuards redo in a fresh minion results that state left by an earlier
+   *                          class may have changed. Only used with reuseMinion.
+   */
+  public MinionArguments(final Collection<MutationDetails> mutations,
+      final Collection<ClassName> tests, final String engine, final EngineArguments engineArgs,
+      final TimeoutLengthStrategy timeoutStrategy, final Verbosity verbosity, final boolean fullMutationMatrix,
+      final TestPluginArguments pitConfig, final boolean reuseMinion, final boolean reuseMinionGuards) {
     this.mutations = mutations;
     this.testClasses = tests;
     this.engine = engine;
@@ -49,6 +64,8 @@ public class MinionArguments implements Serializable {
     this.verbosity = verbosity;
     this.fullMutationMatrix = fullMutationMatrix;
     this.pitConfig = pitConfig;
+    this.reuseMinion = reuseMinion;
+    this.reuseMinionGuards = reuseMinionGuards;
   }
 
   public Verbosity verbosity() {

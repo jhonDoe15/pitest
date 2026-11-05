@@ -256,6 +256,14 @@ public class PitestTask extends Task { // NO_UCD (test only)
     this.setOption(ConfigOption.FULL_MUTATION_MATRIX, value);
   }
 
+  public void setReuseMinions(final String value) {
+    this.setOption(ConfigOption.REUSE_MINIONS, value);
+  }
+
+  public void setReuseMinionGuards(final String value) {
+    this.setOption(ConfigOption.REUSE_MINION_GUARDS, value);
+  }
+
   public void setJVM(String value) {
     this.setOption(ConfigOption.JVM_PATH, value);
   }

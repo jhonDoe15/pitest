@@ -47,6 +47,13 @@ public class DefaultReporter implements Reporter {
   }
 
   @Override
+  public synchronized void retry(final MutationIdentifier i) {
+    this.w.writeByte(Id.RETRY);
+    this.w.write(i);
+    this.w.flush();
+  }
+
+  @Override
   public synchronized void done(final ExitCode exitCode) {
     this.w.writeByte(Id.DONE);
     this.w.writeInt(exitCode.getCode());

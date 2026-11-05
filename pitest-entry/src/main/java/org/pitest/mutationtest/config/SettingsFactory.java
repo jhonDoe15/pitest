@@ -20,6 +20,7 @@ import org.pitest.mutationtest.MutationEngineFactory;
 import org.pitest.mutationtest.MutationResultListenerFactory;
 import org.pitest.mutationtest.build.CompoundInterceptorFactory;
 import org.pitest.mutationtest.build.CompoundProjectMutationFilterFactory;
+import org.pitest.mutationtest.build.ClassPackingGrouperFactory;
 import org.pitest.mutationtest.build.DefaultMutationGrouperFactory;
 import org.pitest.mutationtest.build.DefaultTestPrioritiserFactory;
 import org.pitest.mutationtest.build.FilteringPrioritiser;
@@ -147,10 +148,13 @@ public class SettingsFactory {
   }
 
   public MutationGrouperFactory getMutationGrouper() {
-    // Grouping behaviour is important. We cannot have more than 1 class mutated within
-    // a JVM or else the last mutation will poison the next. This restriction can only
-    // be removed if the hotswap functionality is reworked.
+    // Grouping behaviour is important. Unless the minion restores each class before
+    // moving to the next (reuseMinions), more than 1 class mutated within a JVM would
+    // let the last mutation poison the next.
     // Grouping behaviour is therefore hard coded for now.
+    if (this.options.isReuseMinions()) {
+      return new ClassPackingGrouperFactory();
+    }
     return new DefaultMutationGrouperFactory();
   }
 

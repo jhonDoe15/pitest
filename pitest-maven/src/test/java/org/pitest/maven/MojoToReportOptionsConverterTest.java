@@ -306,6 +306,24 @@ public class MojoToReportOptionsConverterTest extends BasePitMojoTest {
     assertEquals(true, actual.isFullMutationMatrix());
   }
 
+  public void testDoesNotReuseMinionsByDefault() {
+    final ReportOptions actual = parseConfig("");
+    assertEquals(false, actual.isReuseMinions());
+  }
+
+  public void testParsesReuseMinions() {
+    final ReportOptions actual = parseConfig("<reuseMinions>true</reuseMinions>"
+        + "<reuseMinionGuards>true</reuseMinionGuards>");
+    assertEquals(true, actual.isReuseMinions());
+    assertEquals(true, actual.useReuseMinionGuards());
+  }
+
+  public void testParsesReuseMinionGuards() {
+    final ReportOptions actual = parseConfig("<reuseMinions>true</reuseMinions>"
+        + "<reuseMinionGuards>false</reuseMinionGuards>");
+    assertEquals(false, actual.useReuseMinionGuards());
+  }
+
   public void testParsesMutationUnitSize() {
     final ReportOptions actual = parseConfig("<mutationUnitSize>50</mutationUnitSize>");
     assertEquals(50, actual.getMutationUnitSize());

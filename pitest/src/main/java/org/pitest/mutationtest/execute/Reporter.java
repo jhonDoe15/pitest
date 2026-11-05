@@ -24,6 +24,12 @@ public interface Reporter {
 
   void report(MutationIdentifier i, MutationStatusTestPair mutationDetected);
 
+  /**
+   * Asks the parent to analyse the mutant again in a fresh minion, replacing any
+   * result reported for it so far.
+   */
+  void retry(MutationIdentifier i);
+
   void done(ExitCode exitCode);
 
 }

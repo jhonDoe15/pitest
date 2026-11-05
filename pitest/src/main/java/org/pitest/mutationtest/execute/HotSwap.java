@@ -8,6 +8,10 @@ import org.pitest.util.Unchecked;
  * Since pitest 1.9.4 there is an implicit assumption that pitest will never mutate
  * more than once class within the same jvm. If this assumption is ever broken, mutants
  * from the previous class would remain active and invalidate results.
+ *
+ * The reuseMinions option breaks it on purpose. MutationTestWorker then inserts the
+ * original bytes of each class once its mutants are done, which also replaces the
+ * bytes held by CatchNewClassLoadersTransformer.
  */
 class HotSwap {
 

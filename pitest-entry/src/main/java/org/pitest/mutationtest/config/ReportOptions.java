@@ -124,6 +124,8 @@ public class ReportOptions {
   private boolean                        fullMutationMatrix            = false;
 
   private int                            mutationUnitSize;
+  private boolean                        reuseMinions                   = false;
+  private boolean                        reuseMinionGuards              = true;
   private boolean                        shouldCreateTimestampedReports = true;
   private boolean                        detectInlinedCode              = false;
   private boolean                        exportLineCoverage             = false;
@@ -453,6 +455,30 @@ public class ReportOptions {
     return fullMutationMatrix;
   }
 
+  public boolean isReuseMinions() {
+    return this.reuseMinions;
+  }
+
+  public void setReuseMinions(final boolean reuseMinions) {
+    this.reuseMinions = reuseMinions;
+  }
+
+  /**
+   * Whether the guards are requested. They only take effect when reuseMinions is set,
+   * see {@link #useReuseMinionGuards()}.
+   */
+  public boolean isReuseMinionGuards() {
+    return this.reuseMinionGuards;
+  }
+
+  public void setReuseMinionGuards(final boolean reuseMinionGuards) {
+    this.reuseMinionGuards = reuseMinionGuards;
+  }
+
+  public boolean useReuseMinionGuards() {
+    return this.reuseMinions && this.reuseMinionGuards;
+  }
+
   public int getMutationUnitSize() {
     return this.mutationUnitSize;
   }
@@ -720,6 +746,8 @@ public class ReportOptions {
             .add("groupConfig=" + groupConfig)
             .add("fullMutationMatrix=" + fullMutationMatrix)
             .add("mutationUnitSize=" + mutationUnitSize)
+            .add("reuseMinions=" + reuseMinions)
+            .add("reuseMinionGuards=" + reuseMinionGuards)
             .add("shouldCreateTimestampedReports=" + shouldCreateTimestampedReports)
             .add("detectInlinedCode=" + detectInlinedCode)
             .add("exportLineCoverage=" + exportLineCoverage)
